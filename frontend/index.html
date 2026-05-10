@@ -2,75 +2,76 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Split Bill DApp</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 
 <style>
-body {
-  font-family: Arial;
-  background: #0f172a;
-  color: white;
-  display: flex;
-  justify-content: center;
-  padding: 40px;
+body{
+  margin:0;
+  padding:40px;
+  font-family:Arial, sans-serif;
+  background:#0f172a;
+  color:white;
+  display:flex;
+  justify-content:center;
 }
 
-.container {
-  width: 420px;
+.container{
+  width:430px;
 }
 
-.card {
-  background: #1e293b;
-  padding: 20px;
-  border-radius: 12px;
-  margin-bottom: 20px;
+.card{
+  background:#1e293b;
+  border-radius:14px;
+  padding:20px;
+  margin-bottom:18px;
 }
 
-h1 {
-  text-align: center;
+h1{
+  text-align:center;
+  margin-bottom:20px;
 }
 
-input, textarea {
-  width: 100%;
-  padding: 10px;
-  margin-top: 5px;
-  margin-bottom: 15px;
-  border-radius: 8px;
-  border: none;
+input, textarea{
+  width:100%;
+  padding:10px;
+  border:none;
+  border-radius:8px;
+  margin-top:6px;
+  margin-bottom:14px;
+  font-size:14px;
 }
 
-button {
-  width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  border: none;
-  background: #3b82f6;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
+button{
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:8px;
+  background:#3b82f6;
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
 }
 
-button:hover {
-  background: #2563eb;
+button:hover{
+  background:#2563eb;
 }
 
-.status {
-  text-align: center;
-  margin-top: 10px;
-  font-size: 14px;
+.small{
+  font-size:12px;
+  color:#94a3b8;
+  margin-top:6px;
 }
 
-.balance {
-  font-size: 20px;
-  text-align: center;
-  margin-bottom: 10px;
+.status{
+  margin-top:10px;
+  text-align:center;
 }
 
-.small {
-  font-size: 12px;
-  color: #94a3b8;
-  text-align: center;
+.result{
+  line-height:1.7;
 }
 </style>
 </head>
@@ -82,25 +83,28 @@ button:hover {
 <h1>💸 Split Bill</h1>
 
 <div class="card">
-  <button onclick="connectWallet()">Connect Wallet</button>
-  <div class="small" id="address">Address: -</div>
-  <div class="small" id="network">Network: -</div>
-  <div class="status" id="status">Not connected</div>
+<button onclick="connectWallet()">Connect Wallet</button>
+<div class="small" id="wallet">Wallet: -</div>
+<div class="small" id="network">Network: -</div>
+<div class="status" id="status">Not connected</div>
 </div>
 
 <div class="card">
-  <div class="balance" id="balance">Balance: 0 ETH</div>
-  <button onclick="checkBalance()">Refresh Balance</button>
+<label>Amount</label>
+<input id="amount" placeholder="1000">
+
+<label>Participants (comma separated addresses)</label>
+<textarea id="participants" rows="4"
+placeholder="0x123..., 0x456..."></textarea>
+
+<button onclick="addExpense()">Add Expense</button>
 </div>
 
 <div class="card">
-  <label>Amount (ETH)</label>
-  <input id="amount" placeholder="0.01">
-
-  <label>Participants (comma separated)</label>
-  <textarea id="participant" placeholder="0x123..., 0x456..."></textarea>
-
-  <button onclick="addExpense()">Add Expense</button>
+<button onclick="refreshBalance()">Refresh Balance</button>
+<div class="result" id="balanceBox">
+No data yet
+</div>
 </div>
 
 </div>
@@ -109,9 +113,27 @@ button:hover {
 
 let provider, signer, contract;
 
-const contractAddress = "0xaE036c65C649172b43ef7156b009c6221B596B8b";
+const contractAddress = "0xD4Fc541236927E2EAf8F27606bD7309C1Fc2cbee";
 
 const abi = [
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "totalAmount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address[]",
+				"name": "participants",
+				"type": "address[]"
+			}
+		],
+		"name": "addExpense",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
 	{
 		"anonymous": false,
 		"inputs": [
@@ -130,19 +152,6 @@ const abi = [
 		],
 		"name": "ExpenseAdded",
 		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address[]",
-				"name": "participants",
-				"type": "address[]"
-			}
-		],
-		"name": "addExpense",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
 	},
 	{
 		"inputs": [
@@ -246,25 +255,6 @@ const abi = [
 	{
 		"inputs": [
 			{
-				"internalType": "address",
-				"name": "creditor",
-				"type": "address"
-			}
-		],
-		"name": "myDebtTo",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
 				"internalType": "uint256",
 				"name": "",
 				"type": "uint256"
@@ -283,14 +273,12 @@ const abi = [
 	}
 ];
 
-window.onerror = (msg) => {
-  document.getElementById("status").innerText = "JS Error: " + msg;
-};
+async function connectWallet(){
 
-async function connectWallet() {
-  try {
-    if (!window.ethereum) {
-      alert("Install MetaMask");
+  try{
+
+    if(!window.ethereum){
+      alert("Install wallet");
       return;
     }
 
@@ -298,95 +286,99 @@ async function connectWallet() {
     await provider.send("eth_requestAccounts", []);
 
     signer = provider.getSigner();
+
     const network = await provider.getNetwork();
 
-    contract = new ethers.Contract(contractAddress, abi, signer);
+    contract = new ethers.Contract(
+      contractAddress,
+      abi,
+      signer
+    );
 
     const address = await signer.getAddress();
 
-    document.getElementById("address").innerText =
-      "Address: " + address.slice(0,6) + "..." + address.slice(-4);
+    document.getElementById("wallet").innerText =
+      "Wallet: " +
+      address.slice(0,6) +
+      "..." +
+      address.slice(-4);
 
     document.getElementById("network").innerText =
       "Network: " + network.chainId;
 
-    // (optional) kontrola sítě – uprav podle potřeby
-    if (network.chainId !== 11155111) {
-      document.getElementById("status").innerText =
-        "Wrong network ⚠ (switch to Sepolia)";
-      return;
-    }
-
-    document.getElementById("status").innerText = "Connected ✔";
-
-    checkBalance();
-
-  } catch (err) {
-    console.error(err);
     document.getElementById("status").innerText =
-      "Connection failed: " + (err.message || err);
+      "Connected ✔";
+
+  }catch(err){
+    document.getElementById("status").innerText =
+      "Connection failed";
   }
 }
 
-async function addExpense() {
-  try {
-    if (!contract) {
-      alert("Connect wallet first");
-      return;
-    }
+async function addExpense(){
 
-    const amount = document.getElementById("amount").value;
-    const raw = document.getElementById("participant").value;
+  try{
 
-    const addresses = raw.split(",")
-      .map(a => a.trim())
-      .filter(a => ethers.utils.isAddress(a));
+    const amount =
+      document.getElementById("amount").value;
 
-    if (!amount || isNaN(amount) || Number(amount) <= 0 || addresses.length === 0) {
+    const raw =
+      document.getElementById("participants").value;
+
+    const addresses = raw
+      .split(",")
+      .map(x => x.trim())
+      .filter(x => ethers.utils.isAddress(x));
+
+    if(!amount || addresses.length == 0){
       alert("Invalid input");
       return;
     }
 
-    document.getElementById("status").innerText = "Sending transaction...";
+    document.getElementById("status").innerText =
+      "Sending transaction...";
 
-    const tx = await contract.addExpense(addresses, {
-      value: ethers.utils.parseEther(amount)
-    });
+    const tx = await contract.addExpense(
+      amount,
+      addresses
+    );
 
     await tx.wait();
 
-    document.getElementById("status").innerText = "Expense added ✔";
-
-    checkBalance();
-
-  } catch (err) {
-    console.error(err);
     document.getElementById("status").innerText =
-      "Transaction failed: " + (err.message || err);
+      "Expense added ✔";
+
+  }catch(err){
+
+    document.getElementById("status").innerText =
+      "Transaction failed";
+
   }
 }
 
-async function checkBalance() {
-  try {
-    if (!contract) return;
+async function refreshBalance(){
 
-    const address = await signer.getAddress();
-    const balance = await contract.getBalance(address);
+  try{
 
-    // bezpečné formátování
-    const formatted = ethers.utils.formatEther(balance);
+    const user = await signer.getAddress();
 
-    document.getElementById("balance").innerText =
-      "Balance: " + formatted + " ETH";
+    const balance =
+      await contract.getBalance(user);
 
-  } catch (err) {
-    console.error(err);
+    document.getElementById("balanceBox").innerHTML =
+      "Net Balance: <b>" +
+      balance.toString() +
+      "</b><br><br>" +
+      "Positive = others owe you<br>" +
+      "Negative = you owe others";
+
+  }catch(err){
+
+    document.getElementById("balanceBox").innerText =
+      "Error loading data";
+
   }
 }
-
-window.connectWallet = connectWallet;
-window.addExpense = addExpense;
-window.checkBalance = checkBalance;
 
 </script>
 
