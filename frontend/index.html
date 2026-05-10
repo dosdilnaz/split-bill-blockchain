@@ -109,26 +109,180 @@ button:hover {
 
 let provider, signer, contract;
 
-const contractAddress = "0x5586083DEEEe0bC0feDA9da8b02E8B4f3A38A395"; // ОБЯЗАТЕЛЬНО
+const contractAddress = "0xaE036c65C649172b43ef7156b009c6221B596B8b";
 
 const abi = [
-  {
-    "inputs": [{"internalType":"address[]","name":"participants","type":"address[]"}],
-    "name":"addExpense",
-    "outputs":[],
-    "stateMutability":"payable",
-    "type":"function"
-  },
-  {
-    "inputs":[{"internalType":"address","name":"user","type":"address"}],
-    "name":"getBalance",
-    "outputs":[{"internalType":"int256","name":"","type":"int256"}],
-    "stateMutability":"view",
-    "type":"function"
-  }
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "payer",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "totalAmount",
+				"type": "uint256"
+			}
+		],
+		"name": "ExpenseAdded",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address[]",
+				"name": "participants",
+				"type": "address[]"
+			}
+		],
+		"name": "addExpense",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "debts",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getAllUsers",
+		"outputs": [
+			{
+				"internalType": "address[]",
+				"name": "",
+				"type": "address[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			}
+		],
+		"name": "getBalance",
+		"outputs": [
+			{
+				"internalType": "int256",
+				"name": "",
+				"type": "int256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "creditor",
+				"type": "address"
+			}
+		],
+		"name": "getDebt",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "isUser",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "creditor",
+				"type": "address"
+			}
+		],
+		"name": "myDebtTo",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "users",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
 ];
 
-// ловим ошибки
 window.onerror = (msg) => {
   document.getElementById("status").innerText = "JS Error: " + msg;
 };
@@ -144,7 +298,6 @@ async function connectWallet() {
     await provider.send("eth_requestAccounts", []);
 
     signer = provider.getSigner();
-
     const network = await provider.getNetwork();
 
     contract = new ethers.Contract(contractAddress, abi, signer);
@@ -157,13 +310,21 @@ async function connectWallet() {
     document.getElementById("network").innerText =
       "Network: " + network.chainId;
 
+    // (optional) kontrola sítě – uprav podle potřeby
+    if (network.chainId !== 11155111) {
+      document.getElementById("status").innerText =
+        "Wrong network ⚠ (switch to Sepolia)";
+      return;
+    }
+
     document.getElementById("status").innerText = "Connected ✔";
 
     checkBalance();
 
   } catch (err) {
     console.error(err);
-    document.getElementById("status").innerText = "Connection failed";
+    document.getElementById("status").innerText =
+      "Connection failed: " + (err.message || err);
   }
 }
 
@@ -181,7 +342,7 @@ async function addExpense() {
       .map(a => a.trim())
       .filter(a => ethers.utils.isAddress(a));
 
-    if (!amount  isNaN(amount)  addresses.length === 0) {
+    if (!amount || isNaN(amount) || Number(amount) <= 0 || addresses.length === 0) {
       alert("Invalid input");
       return;
     }
@@ -199,8 +360,9 @@ async function addExpense() {
     checkBalance();
 
   } catch (err) {
-console.error(err);
-    document.getElementById("status").innerText = "Transaction failed";
+    console.error(err);
+    document.getElementById("status").innerText =
+      "Transaction failed: " + (err.message || err);
   }
 }
 
@@ -211,7 +373,8 @@ async function checkBalance() {
     const address = await signer.getAddress();
     const balance = await contract.getBalance(address);
 
-    const formatted = ethers.utils.formatEther(balance.toString());
+    // bezpečné formátování
+    const formatted = ethers.utils.formatEther(balance);
 
     document.getElementById("balance").innerText =
       "Balance: " + formatted + " ETH";
@@ -221,7 +384,6 @@ async function checkBalance() {
   }
 }
 
-// фикс для кнопок
 window.connectWallet = connectWallet;
 window.addExpense = addExpense;
 window.checkBalance = checkBalance;
